@@ -3,8 +3,10 @@ package Data::Path;
 use 5.006001;
 use strict;
 use warnings;
+use Scalar::Util 'blessed';
+use Carp;
 
-our $VERSION = '1.0';
+our $VERSION = '1.1';
 
 sub new {
 	my ($class,$data,$callback)=@_;
@@ -17,25 +19,30 @@ sub new {
 			{ key_does_not_exist            => $callback->{key_does_not_exist} ||
 				sub {
 					my ($data, $key, $index, $value, $rest )=@_;
-					die "key $key does not exists\n";
+					croak "key $key does not exists\n";
 				}
 
 			, index_does_not_exist         => $callback->{index_does_not_exist} ||
 				sub {
 					my ($data, $key, $index, $value, $rest )=@_;
-					die "key $key\[$index\] does not exists\n";
+					croak "key $key\[$index\] does not exists\n";
 				}
 
 			, retrieve_index_from_non_array => $callback->{retrieve_index_from_non_array} ||
 				sub {
 					my ($data, $key, $index, $value, $rest )=@_;
-					die "trie to retrieve an index $index from a no array value (in key $key)\n";
+					croak "trie to retrieve an index $index from a no array value (in key $key)\n";
 				}
 
 			, retrieve_key_from_non_hash    => $callback->{retrieve_key_from_non_hash} ||
 				sub {
 					my ($data, $key, $index, $value, $rest )=@_;
-					die "trie to retrieve a key from a no hash value (in key $key)\n";
+					croak "trie to retrieve a key from a no hash value (in key $key)\n";
+				}
+			, not_a_coderef_or_method    => $callback->{not_a_coderef_or_method} ||
+				sub {
+					my ($data, $key, $index, $value, $rest )=@_;
+					croak "tried to retrieve from a non-existant coderef or method: $key in $data";
 				}
 			}
 
@@ -59,16 +66,25 @@ sub get {
 	my $rest  = $rkey;
 
 	# get key from data
-	my $value = $data->{$key};
-
-	# die if key does not exists and something after that is requested 
+	my $value;
+    if ($key =~ s/(\(\))$//) {
+        $self->{callback}->{not_a_coderef_or_method}->($data, $key, $index, $value, $rest)
+            unless exists $data->{$key} or (blessed $data && $data->can($key)); 
+        
+        $value = $data->{$key}->() if (exists $data->{$key});
+        $value = $data->$key() if blessed $data && $data->can($key);
+    } else {
+	   $value = $data->{$key};
+    }
+	
+    # croak if key does not exists and something after that is requested 
 	$self->{callback}->{key_does_not_exist}->($data, $key, $index, $value, $rest) 
 		if not exists $data->{$key} and $rest;
 
 	# check index 
 	if (defined $index) {
 
-		# die if index does not exists and something after that is requested 
+		# croak if index does not exists and something after that is requested 
 		$self->{callback}->{index_does_not_exist}->($data, $key, $index, $value, $rest) 
 			if not exists $value->[$index] and $rest;
 
@@ -110,12 +126,15 @@ Data::Path - Perl extension for XPath like accessing from complex data structs
 			, { text => 'msg1' }
 			, { text => 'msg2' }
 			]
-	}
+	},
+    method => sub {'method text'}
   }
   
   my $hpath=Data::Path->new($hashdata);
   my $value= $hpath->get('/result/msg[1]/text');
-
+  my $value2 = $hpath->get('/method()');
+  
+  print "OK" if $value2 eq 'method text';
   print "OK" if $value eq 'msg1';
 
 
@@ -140,25 +159,30 @@ The default callbacks but you can overwrite this.
 	{ key_does_not_exist            =>
 		sub {
 			my ($data, $key, $index, $value, $rest )=@_;
-			die "key $key does not exists\n";
+			croak "key $key does not exists\n";
 		}
 
 	, index_does_not_exist         =>
 		sub {
 			my ($data, $key, $index, $value, $rest )=@_;
-			die "key $key\[$index\] does not exists\n";
+			croak "key $key\[$index\] does not exists\n";
 		}
 
 	, retrieve_index_from_non_array =>
 		sub {
 			my ($data, $key, $index, $value, $rest )=@_;
-			die "trie to retrieve an index $index from a no array value (in key $key)\n";
+			croak "trie to retrieve an index $index from a no array value (in key $key)\n";
 		}
 
 	, retrieve_key_from_non_hash    =>
 		sub {
 			my ($data, $key, $index, $value, $rest )=@_;
-			die "trie to retrieve a key from a no hash value (in key $key)\n";
+			croak "trie to retrieve a key from a no hash value (in key $key)\n";
+		}
+	, not_a_coderef_or_method    => $callback->{not_a_coderef_or_method} ||
+		sub {
+			my ($data, $key, $index, $value, $rest )=@_;
+			croak "tried to retrieve from a non-existant coderef or method";
 		}
 	}
 

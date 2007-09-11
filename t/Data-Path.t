@@ -1,5 +1,6 @@
+use Test::More tests => 17;
+use Test::MockObject;
 
-use Test::More tests => 15;
 BEGIN {
     use lib qw(lib);
     use_ok('Data::Path')
@@ -26,6 +27,7 @@ my $hash=
               }
             ]
         }
+    , method => sub {return 'sub val';}
 
     };
 
@@ -86,4 +88,9 @@ eval {
 	$b->get('/complex/level2[99]/level3_0');
 };
 ok ( $@ =~/callback_error_index/  ," check error_msg = $@");
+my $obj = Test::MockObject->new({});
 
+$obj->mock('method2' => sub {'method2 val'});
+my $b2 = Data::Path->new($obj);
+is($b->get('/method()'), $hash->{method}->(), "subroutine returned"); 
+is($b2->get('/method2()', $obj), $obj->method2(), "method returned"); 

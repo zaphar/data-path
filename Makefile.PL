@@ -3,8 +3,12 @@ use inc::Module::Install;
 name            'Data-Path';
 perl_version    '5.006';
 
-all_from        'lib/Data/Path';
+all_from        'lib/Data/Path.pm';
 
-build_requires  'Test::More' => '0.7';
+requires            'Carp'              => '0';
+requires            'Scalar::Util'      => '0';
 
-WriteAl;
+build_requires      'Test::More'        => '0.7';
+build_requires      'Test::MockObject'  => '1.08';
+
+WriteAll;
