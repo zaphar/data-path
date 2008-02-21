@@ -1,4 +1,4 @@
-use Test::More tests => 17;
+use Test::More tests => 18;
 use Test::MockObject;
 
 BEGIN {
@@ -94,3 +94,9 @@ $obj->mock('method2' => sub {'method2 val'});
 my $b2 = Data::Path->new($obj);
 is($b->get('/method()'), $hash->{method}->(), "subroutine returned"); 
 is($b2->get('/method2()', $obj), $obj->method2(), "method returned"); 
+
+my $deep_method = { foo => $obj};
+
+$b = Data::Path->new($deep_method);
+is($b->get('/foo/method2()'), $obj->method2(), "deep method returned");
+

@@ -97,7 +97,7 @@ sub get {
 
 	# check if last element is reached
 	if ($rest) {
-		if ( ref $value eq 'HASH' ) {
+		if ( ref $value eq 'HASH' || blessed $value ) {
 			$value=$self->get($rest,$value);
 		} else {
 			$self->{callback}->{retrieve_key_from_non_hash}->($data, $key, $index, $value, $rest);
